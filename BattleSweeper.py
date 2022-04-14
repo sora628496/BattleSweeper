@@ -7,10 +7,10 @@ OPEN = 1
 LOCK = 2
 EXPLODED = -1
 
-ROW = 10
+ROW = 10  # 32以上だと対応する記号が無くなります
 COLUMN = 10
 
-BOMB_COUNT = 20
+BOMB_COUNT = round(ROW * COLUMN * 0.2)
 
 LEFT = 0
 RIGHT = 1
@@ -258,7 +258,7 @@ class Main:
                         self.point2 -= MISS_PENALTY
                         screen.draw_score(self.turn, self.point2)
                     screen.draw_text(Log.MISS_LOCK, self.turn, MISS_PENALTY, x, y)
-                    self.field[y][x].lock(0)
+                    self.field[y][x].lock(self.turn)
                     self.field[y][x].open(0)
 
     def check_clear(self):

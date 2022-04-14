@@ -51,15 +51,15 @@ class Screen:
         self.max_bomb = bomb_count
         self.cell_size = min(FIELD_WIDTH // row, FIELD_HEIGHT // column)
 
-        for i in range(self.column):
-            canvas.create_text(60 + 40 * i, 20, text=chr(ord('a') + i), font=('Times', 24))
         for i in range(self.row):
-            canvas.create_text(20, 60 + 40 * i, text=i + 1, font=('Times', 24))
+            canvas.create_text(40+self.cell_size*0.5 + self.cell_size * i, 20, text=chr(ord('a') + i), font=('Times', round(self.cell_size*3/5)))
+        for i in range(self.column):
+            canvas.create_text(20, 40+self.cell_size*0.5 + self.cell_size * i, text=i + 1, font=('Times', round(self.cell_size*3/5)))
 
         canvas.create_rectangle(20, 460, 440, 580, fill="white")
         canvas.create_rectangle(460, 20, 780, 440, fill="white")
         canvas.create_rectangle(460, 460, 780, 580, fill="white")
-        canvas.create_text(626, 44, text="マルチスイーパー", font=('Times', 28))
+        canvas.create_text(626, 44, text="バトルスイーパー", font=('Times', 28))
         canvas.create_text(515, 110, text="現在：", font=('Times', 20))
         self.turn_label = tkinter.Label(text="Player1", font=('Times', 20), bg="white", fg="red")
         self.turn_label.place(x=555, y=90)
@@ -174,7 +174,7 @@ class Screen:
                                 FIELD_X + (x + 1) * self.cell_size, FIELD_Y + (y + 1) * self.cell_size,
                                 fill=color)
         canvas.create_text(FIELD_X + (x + 0.5) * self.cell_size, FIELD_Y + (y + 0.5) * self.cell_size,
-                           text=f"{count}", font=('Times', 40))
+                           text=f"{count}", font=('Times', self.cell_size))
 
     def draw_bomb(self, x, y, player_num):
         if player_num == 1:
