@@ -1,3 +1,8 @@
+"""
+描画クラス
+キャンバスの設定を含め、描画関連の処理は全てここでしている
+"""
+
 from tkinter import *
 import tkinter
 from enum import Enum, auto
@@ -10,9 +15,6 @@ FIELD_HEIGHT = 400
 # 盤面左上角の座標
 FIELD_X = 40
 FIELD_Y = 40
-
-LEFT = 0
-RIGHT = 1
 
 # ====================================================================================================================
 
@@ -157,12 +159,6 @@ class Screen:
                            FIELD_X + (x + 0.4) * self.cell_size, FIELD_Y + (y + 0.9) * self.cell_size,
                            width=2)
 
-    def draw_miss(self, x, y):
-        canvas.create_line(FIELD_X + x * self.cell_size, FIELD_Y + y * self.cell_size,
-                           FIELD_X + (x + 1) * self.cell_size, FIELD_Y + (y + 1) * self.cell_size)
-        canvas.create_line(FIELD_X + x * self.cell_size, FIELD_Y + (y + 1) * self.cell_size,
-                           FIELD_X + (x + 1) * self.cell_size, FIELD_Y + y * self.cell_size)
-
     def draw_open(self, x, y, count, player_num):
         if player_num == 1:
             color = "mistyrose"
@@ -205,14 +201,14 @@ class Screen:
         y = (event.y - FIELD_Y) // self.cell_size
         if x < 0 or self.row <= x or y < 0 or self.column <= y:
             return
-        self.main.clicked(x, y, LEFT)
+        self.main.left_clicked(x, y)
 
     def right_clicked(self, event):
         x = (event.x - FIELD_X) // self.cell_size
         y = (event.y - FIELD_Y) // self.cell_size
         if x < 0 or self.row <= x or y < 0 or self.column <= y:
             return
-        self.main.clicked(x, y, RIGHT)
+        self.main.right_clicked(x, y)
 
     def mainloop(self):
         tk.mainloop()

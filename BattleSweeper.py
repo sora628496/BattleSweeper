@@ -1,177 +1,28 @@
+"""
+バトルスイーパー(2人対戦型マインスイーパー)
+
+"""
+
 import random
 from src.Screen import Screen, Log
+from src.Cell import Cell, State, Command
 
 # ====================================================================================================================
-CLOSE = 0
-OPEN = 1
-LOCK = 2
-EXPLODED = -1
-
-ROW = 10  # 32以上だと対応する記号が無くなります
-COLUMN = 10
+ROW = 30  # 32以上だと対応する記号が無くなります
+COLUMN = 30
 
 BOMB_COUNT = round(ROW * COLUMN * 0.2)
-
-LEFT = 0
-RIGHT = 1
 
 EXPLODE_PENALTY = 30
 MISS_PENALTY = 5
 
 
+# 範囲外判定
 def out_of_field(x, y):
     return x < 0 or ROW <= x or y < 0 or COLUMN <= y
 
 
 # ====================================================================================================================
-
-class Cell:
-    x: int
-    y: int
-    state: int
-    bomb: bool
-    count: int
-    player_num: int
-
-    field: list
-
-    def __init__(self, x, y, field):
-        self.x = x
-        self.y = y
-        self.state = CLOSE
-        self.bomb = False
-        self.count = 0
-        self.player_num = 0
-
-        self.field = field
-
-    def get_state(self):
-        return self.state
-
-    def set_state(self, state):
-        self.state = state
-
-    def set_player_num(self, player_num):
-        self.player_num = player_num
-
-    def is_bomb(self):
-        return self.bomb
-
-    def set_bomb(self):
-        self.bomb = True
-
-    def set_count(self, count):
-        self.count = count
-
-    def left_click(self, player_num):
-        score = 0
-        if self.state == CLOSE:
-            if self.bomb:
-                self.state = EXPLODED
-                self.player_num = player_num
-                self.draw()
-                main.explode()
-            else:
-                score = self.open(player_num)
-                # print(score)
-        elif self.state == OPEN:
-            score = self.number_open(player_num)
-            if score == -1:
-                return
-        else:
-            return
-        main.calc_score(score, player_num)
-        main.change_turn()
-
-    def right_click(self, player_num):
-        self.lock(player_num)
-
-    # マス開け関数(閉じたマスに対して呼ばれる前提)
-    def open(self, player_num):
-        self.state = OPEN
-        self.player_num = player_num
-        self.draw()
-        score = 1
-        # 0開け
-        if self.count == 0:
-            for b in range(-1, 2):
-                for a in range(-1, 2):
-                    if out_of_field(self.x + a, self.y + b): continue
-                    if self.field[self.y + b][self.x + a].get_state() == CLOSE:
-                        score += self.field[self.y + b][self.x + a].open(player_num)
-        return score
-
-    # 数字開け
-    def number_open(self, player_num):
-        score = 0
-        lock_count = 0
-        for b in range(-1, 2):
-            for a in range(-1, 2):
-                if out_of_field(self.x + a, self.y + b): continue
-                state = self.field[self.y + b][self.x + a].get_state()
-                if state == LOCK or state == EXPLODED:
-                    lock_count += 1
-        if self.count != lock_count:
-            return -1
-        for b in range(-1, 2):
-            for a in range(-1, 2):
-                if out_of_field(self.x + a, self.y + b): continue
-                if self.field[self.y + b][self.x + a].get_state() == CLOSE:
-                    cell = self.field[self.y + b][self.x + a]
-                    if cell.is_bomb():
-                        cell.set_state(EXPLODED)
-                        cell.set_player_num(player_num)
-                        cell.draw()
-                        main.explode()
-                    else:
-                        score += cell.open(player_num)
-        return score
-
-    # ロック関数
-    def lock(self, player_num):
-        if self.state == CLOSE:
-            self.state = LOCK
-            self.player_num = player_num
-            self.draw()
-            main.lock()
-            main.calc_score(1, player_num)
-        elif self.state == LOCK:
-            if self.player_num == player_num:
-                self.state = CLOSE
-                self.draw()
-                main.unlock()
-                main.calc_score(-1, player_num)
-        elif self.state == OPEN:
-            self.number_lock(player_num)
-
-    # 数字ロック
-    def number_lock(self, player_num):
-        close_count = 0
-        for b in range(-1, 2):
-            for a in range(-1, 2):
-                if out_of_field(self.x + a, self.y + b): continue
-                state = self.field[self.y + b][self.x + a].get_state()
-                if state == CLOSE or state == LOCK or state == EXPLODED:
-                    close_count += 1
-        if self.count != close_count: return
-        for b in range(-1, 2):
-            for a in range(-1, 2):
-                if out_of_field(self.x + a, self.y + b): continue
-                if self.field[self.y + b][self.x + a].get_state() == CLOSE:
-                    self.field[self.y + b][self.x + a].lock(player_num)
-
-    def check_lock_miss(self):
-        return self.state == LOCK and not self.bomb
-
-    def draw(self):
-        if self.state == OPEN:
-            screen.draw_open(self.x, self.y, self.count, self.player_num)
-        elif self.state == CLOSE:
-            screen.draw_close(self.x, self.y)
-        elif self.state == LOCK:
-            screen.draw_lock(self.x, self.y, self.player_num)
-        elif self.state == EXPLODED:
-            screen.draw_bomb(self.x, self.y, self.player_num)
 
 
 class Main:
@@ -184,6 +35,7 @@ class Main:
         self.is_first = True
         self.pass_count = 0
 
+    # 初期化関数
     def initialize(self):
         screen.reset()
         screen.set_bind()
@@ -198,12 +50,17 @@ class Main:
         for y in range(COLUMN):
             line = []
             for x in range(ROW):
-                line.append(Cell(x, y, self.field))
+                line.append(Cell(x, y, screen))
             self.field.append(line)
         self.draw()
 
+    # 手番交代処理
     def change_turn(self, pass_turn=False):
-        self.miss_check()
+        # ミスロックのチェック
+        for y in range(COLUMN):
+            for x in range(ROW):
+                if self.field[y][x].check_lock_miss():
+                    self.miss_lock(x, y, self.turn)
         if not pass_turn:
             self.check_clear()
             self.pass_count = 0
@@ -213,59 +70,55 @@ class Main:
             self.turn = 1
         screen.draw_turn(self.turn)
 
-    def calc_score(self, score, player_num):
+    # スコア処理
+    def gain_score(self, player_num, score):
         if player_num == 1:
             self.point1 += score
-            screen.draw_score(self.turn, self.point1)
+            screen.draw_score(player_num, self.point1)
         elif player_num == 2:
             self.point2 += score
-            screen.draw_score(self.turn, self.point2)
+            screen.draw_score(player_num, self.point2)
 
+    # 地雷の位置を決めて設置
     def set_bombs(self, x0, y0):
         # 爆弾の位置決め
         lis = []
         for y in range(COLUMN):
             for x in range(ROW):
+                # if x == x0 and y == y0:# 最初にクリックした位置だけ地雷無しにしたいとき
                 if x0 - 1 <= x <= x0 + 1 and y0 - 1 <= y <= y0 + 1:
-                    # if x == x0 and y == y0:
                     continue
                 lis.append([x, y])
         random.shuffle(lis)
         for i in range(BOMB_COUNT):
             pos = lis.pop()
             self.field[pos[1]][pos[0]].set_bomb()
+        self.set_counts()
 
-        # 各マス周囲の爆弾の数を数える
+    # 各マス周囲の爆弾の数を数えて設定
+    def set_counts(self):
         for y in range(COLUMN):
             for x in range(ROW):
+                if self.field[y][x].is_bomb():
+                    self.field[y][x].set_count(-1)
+                    continue
                 count = 0
                 for b in range(-1, 2):
                     for a in range(-1, 2):
-                        if a == 0 and b == 0: continue
-                        if out_of_field(x + a, y + b): continue
+                        if a == 0 and b == 0:
+                            continue
+                        if out_of_field(x + a, y + b):
+                            continue
                         if self.field[y + b][x + a].is_bomb():
                             count += 1
                 self.field[y][x].set_count(count)
 
-    def miss_check(self):
-        for y in range(len(self.field)):
-            for x in range(len(self.field[0])):
-                if self.field[y][x].check_lock_miss():
-                    if self.turn == 1:
-                        self.point1 -= MISS_PENALTY
-                        screen.draw_score(self.turn, self.point1)
-                    if self.turn == 2:
-                        self.point2 -= MISS_PENALTY
-                        screen.draw_score(self.turn, self.point2)
-                    screen.draw_text(Log.MISS_LOCK, self.turn, MISS_PENALTY, x, y)
-                    self.field[y][x].lock(self.turn)
-                    self.field[y][x].open(0)
-
+    # クリア(地雷が無いマスが全て開いているか)チェック
     def check_clear(self):
         is_clear = True
-        for line in self.field:
-            for cell in line:
-                if (cell.get_state() == CLOSE or cell.get_state() == LOCK) and not cell.is_bomb():
+        for y in range(COLUMN):
+            for x in range(ROW):
+                if self.field[y][x].is_not_confirm():
                     is_clear = False
         if not is_clear:
             return
@@ -276,71 +129,182 @@ class Main:
         elif self.point1 == self.point2:
             screen.draw_text(Log.DRAW, 0)
 
-    def lock(self):
+    # 地雷爆発時の処理
+    def explode(self, player_num):
         self.remain_bomb -= 1
         screen.draw_bomb_count(self.remain_bomb)
+        self.gain_score(player_num, -EXPLODE_PENALTY)
+        screen.draw_text(Log.EXPLODE, player_num, EXPLODE_PENALTY)
 
-    def unlock(self):
-        self.remain_bomb += 1
-        screen.draw_bomb_count(self.remain_bomb)
+    # ミスロック処理
+    def miss_lock(self, x, y, player_num):
+        self.gain_score(player_num, -MISS_PENALTY)
+        screen.draw_text(Log.MISS_LOCK, player_num, MISS_PENALTY, x, y)
+        self.cell_lock(x, y, player_num)
+        self.command_open(x, y, player_num)
 
-    def explode(self):
-        self.lock()
-        if self.turn == 1:
-            self.point1 -= EXPLODE_PENALTY
-        if self.turn == 2:
-            self.point2 -= EXPLODE_PENALTY
-        screen.draw_text(Log.EXPLODE, self.turn, EXPLODE_PENALTY)
-
+    # パスの処理
     def pass_turn(self):
         self.pass_count += 1
         screen.draw_text(Log.PASS, self.turn)
         if self.pass_count < 2 or self.is_first:
             self.change_turn(True)
-            return
+        else:
+            self.auto_open()
+
+    # 2連パス時の自動開けの処理
+    def auto_open(self):
         screen.draw_text(Log.AUTO_OPEN)
         self.pass_count = 0
         lis = []
         for y in range(COLUMN):
             for x in range(ROW):
-                if self.field[y][x].get_state() == CLOSE and not self.field[y][x].is_bomb():
+                if self.field[y][x].get_state() == State.CLOSE and not self.field[y][x].is_bomb():
+                    # 開いてるマスに隣接したマスをlisに集める
                     is_edge = False
                     for b in range(-1, 2):
                         for a in range(-1, 2):
-                            if a == 0 and b == 0: continue
-                            if out_of_field(x + a, y + b): continue
-                            if self.field[y + b][x + a].get_state() == OPEN:
+                            if a == 0 and b == 0:
+                                continue
+                            if out_of_field(x + a, y + b):
+                                continue
+                            if self.field[y + b][x + a].get_state() == State.OPEN:
                                 is_edge = True
-                                lis.append([x, y])
                                 break
                         if is_edge:
                             break
+                    if is_edge:
+                        lis.append([x, y])
+        # 開いてるマスに隣接するマスが全て地雷入りなら地雷が入っていないマスを全てlisに集める
         if not lis:
             for y in range(COLUMN):
                 for x in range(ROW):
-                    if self.field[y][x].get_state() == CLOSE and not self.field[y][x].is_bomb():
+                    if self.field[y][x].get_state() == State.CLOSE and not self.field[y][x].is_bomb():
                         lis.append([x, y])
+        # 地雷が無いマスが全て開いているとき(決着後)
+        if not lis:
+            return
         random.shuffle(lis)
         pos = lis.pop()
-        self.field[pos[1]][pos[0]].left_click(0)
-
-    def retry(self):
-        self.initialize()
+        self.command_open(pos[0], pos[1], 0)
 
     def draw(self):
         for line in self.field:
             for cell in line:
                 cell.draw()
 
-    def clicked(self, x, y, type):
-        if type == LEFT:
-            if self.is_first:
-                self.is_first = False
-                self.set_bombs(x, y)
-                self.field[y][x].left_click(0)
-            self.field[y][x].left_click(self.turn)
-        elif type == RIGHT:
-            self.field[y][x].right_click(self.turn)
+    # やり直しボタンで呼ばれる
+    def retry(self):
+        self.initialize()
+
+    # 画面クリックで呼ばれる(x, yはクリックされたマスの座標)
+    def left_clicked(self, x, y):
+        player_num = self.turn
+        if self.is_first:
+            self.is_first = False
+            self.set_bombs(x, y)
+            player_num = 0
+        cell_opened = self.command_open(x, y, player_num)
+        if cell_opened:
+            self.change_turn()
+
+    # 画面右クリックで呼ばれる(x, yはクリックされたマスの座標)
+    def right_clicked(self, x, y):
+        command = self.field[y][x].check_lock_command(self.turn)
+        if command == Command.NUMBER_LOCK:
+            self.number_lock(x, y, self.turn)
+        elif command == Command.OPPONENT_LOCK:
+            pass
+        elif command == Command.NORMAL:
+            self.cell_lock(x, y, self.turn)
+
+    # 特殊開け処理
+    def command_open(self, x, y, player_num):
+        command = self.field[y][x].check_open_command()
+        if command == Command.ZERO_OPEN:
+            self.zero_open(x, y, player_num)
+            return True
+        elif command == Command.NUMBER_OPEN:
+            cell_opened = self.number_open(x, y)
+            return cell_opened
+        elif command == Command.NORMAL:
+            self.cell_open(x, y, player_num)
+            return True
+        else:
+            return False
+
+    # 通常のマス開け
+    def cell_open(self, x, y, player_num):
+        explode = self.field[y][x].open(player_num)
+        if explode:
+            self.explode(player_num)
+        else:
+            self.gain_score(player_num, 1)
+
+    # 範囲開け
+    def number_open(self, x, y):
+        cell_opened = False
+        lock_count = 0
+        for b in range(-1, 2):
+            for a in range(-1, 2):
+                if out_of_field(x + a, y + b):
+                    continue
+                state = self.field[y + b][x + a].get_state()
+                if state == State.LOCK or state == State.EXPLODED:
+                    lock_count += 1
+        if self.field[y][x].get_count() != lock_count:
+            return False
+        for b in range(-1, 2):
+            for a in range(-1, 2):
+                if out_of_field(x + a, y + b):
+                    continue
+                if self.field[y + b][x + a].get_state() == State.CLOSE:
+                    self.command_open(x + a, y + b, self.turn)
+                    cell_opened = True
+        return cell_opened
+
+    # 0開け
+    def zero_open(self, x, y, player_num):
+        for b in range(-1, 2):
+            for a in range(-1, 2):
+                if out_of_field(x + a, y + b):
+                    continue
+                if self.field[y + b][x + a].get_state() == State.CLOSE:
+                    command = self.field[y + b][x + a].check_open_command()
+                    self.cell_open(x + a, y + b, player_num)
+                    if command == Command.ZERO_OPEN:
+                        self.zero_open(x + a, y + b, player_num)
+
+    # 通常のロック
+    def cell_lock(self, x, y, player_num):
+        locked = self.field[y][x].lock(player_num)
+        if locked:
+            self.remain_bomb -= 1
+            screen.draw_bomb_count(self.remain_bomb)
+            self.gain_score(player_num, 1)
+        else:
+            self.remain_bomb += 1
+            screen.draw_bomb_count(self.remain_bomb)
+            self.gain_score(player_num, -1)
+
+    # 範囲ロック
+    def number_lock(self, x, y, player_num):
+        close_count = 0
+        for b in range(-1, 2):
+            for a in range(-1, 2):
+                if out_of_field(x + a, y + b):
+                    continue
+                state = self.field[y + b][x + a].get_state()
+                if state == State.CLOSE or state == State.LOCK or state == State.EXPLODED:
+                    close_count += 1
+        if self.field[y][x].get_count() != close_count:
+            return
+        for b in range(-1, 2):
+            for a in range(-1, 2):
+                if out_of_field(x + a, y + b):
+                    continue
+                if self.field[y + b][x + a].get_state() == State.CLOSE:
+                    self.cell_lock(x + a, y + b, player_num)
 
 
 screen = Screen(ROW, COLUMN, BOMB_COUNT)
